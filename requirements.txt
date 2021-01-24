@@ -1,0 +1,8 @@
+entsoe-py==0.3.2
+flask-ngrok==0.0.25
+tensorflow==2.3.0
+statsmodels==0.10.2
+pandas==1.1.4
+requests==2.23.0
+statsmodels==0.10.2
+Flask==1.1.2
