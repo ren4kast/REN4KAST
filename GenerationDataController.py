@@ -53,7 +53,7 @@ def calculate_renewables_percentage(start, end, expected_length):
     RenForecast = generation_data.drop(columns=['Biomass', 'Fossil Brown coal/Lignite', 'Fossil Gas',
                                                 'Fossil Hard coal', 'Fossil Oil', 'Geothermal', 'Hydro Pumped Storage',
                                                 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir', 'Nuclear',
-                                                'Other', 'Waste', ('Other renewable', 'Actual Consumption'),
+                                                'Other', 'Waste', #('Other renewable', 'Actual Consumption'),
                                                 ('Solar', 'Actual Consumption'),
                                                 ('Wind Onshore', 'Actual Consumption')])
 

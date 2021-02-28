@@ -21,7 +21,7 @@ def merge_datasets_by_taking_average(df, target_columns):
 
 
 # Asserting that number of rows among different datasets are equal
-# If it is not equal, then some datapoint are missing
+# If it is not equal, then some datapoints are missing
 def assert_on_number_of_rows(df):
     for i in df:
         assert len(i) == len(df[0]), "Number of rows did NOT match! {} vs. {}".format(len(df[0]), len(i))
@@ -58,9 +58,9 @@ def get_and_clean_historical_data(start, end, timezone):
 
     # for missing ghi (normally 1 day)
     # By uncommenting the following rows, we use last datapoint for the missing day
-    # last_dp = average_ghi.loc[[average_ghi.index[-1]]]
-    # for i in range(len(filledData_spline) - len(average_ghi)):
-    #    average_ghi = average_ghi.append(last_dp, ignore_index=False)
+    last_dp = average_ghi.loc[[average_ghi.index[-1]]]
+    for i in range(len(filledData_spline) - len(average_ghi)):
+       average_ghi = average_ghi.append(last_dp, ignore_index=False)
 
     assert_on_number_of_rows([average_ghi, filledData_spline])
     filledData_spline.index = average_ghi.index
