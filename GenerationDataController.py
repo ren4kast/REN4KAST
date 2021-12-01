@@ -29,7 +29,7 @@ def calculate_renewables_percentage(start, end, expected_length):
                                                 'Hydro Run-of-river and poundage', 'Hydro Water Reservoir', 'Nuclear',
                                                 'Other', 'Waste', #('Other renewable', 'Actual Consumption'),
                                                 ('Solar', 'Actual Consumption'),
-                                                ('Wind Onshore', 'Actual Consumption'),('Other renewable', 'Actual Consumption')])
+                                                ('Wind Onshore', 'Actual Consumption'), ('Other renewable', 'Actual Consumption')])
 
     RenForecast.insert(0, "calcTotal", calcTotal["Actual Aggregated"], True)
     RenForecast.insert(1, "sumBioMassAndHydro", sumBioMassAndHydro["Actual Aggregated"], True)
