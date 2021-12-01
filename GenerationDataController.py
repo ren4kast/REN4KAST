@@ -29,7 +29,7 @@ def get_entsoe_data(start, end, expected_length):
 
 # Calculate renewables percentage
 def calculate_renewables_percentage(start, end, expected_length):
-    #entsoe_data = get_entsoe_data(start, end, expected_length)
+    entsoe_data = get_entsoe_data(start, end, expected_length)
     # asserting that the number of rows
     assert expected_length == len(entsoe_data), "Number of rows did NOT match! {} vs. {}".format(expected_length,
                                                                                                  len(entsoe_data))
