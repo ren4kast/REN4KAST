@@ -80,3 +80,22 @@ def get_forecasts_for_today():
         return run_and_save_S_ARIMAX_model(renewables_percentage, data_frequency_per_day,
                                            exog_params[:-data_frequency_per_day], exog_params[-data_frequency_per_day:],
                                            config)
+
+
+
+
+# Auto selecting the best model for current month, gathering data and returning the model forecasts.
+def get_monthly_approach_forecasts_for_today():
+    data_frequency_per_day = 96
+    start = (datetime.today() - timedelta(days=35)).strftime('%Y-%m-%d')
+    end = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+    end_entsoe = (datetime.today() + timedelta(days=1)).strftime('%Y-%m-%d')
+    timezone = "Etc/GMT"  # Europe/Berlin OR Etc/GMT
+
+    # Getting exogenous params (GHI, Wind speed) for ARIMAX and SARIMAX
+    exog_params = get_and_clean_historical_data(start, end, timezone)
+    # Updating the index and chaging type to float64
+    exog_params.index = pd.date_range(start="{} 00:00:00".format(start), periods=len(exog_params), freq='15Min')
+    exog_params = exog_params.apply(pd.to_numeric)
+    # training the model and returning the forecasts
+    return exog_params

@@ -44,7 +44,7 @@ def get_and_clean_historical_data(start, end, timezone):
     ghi_data = bulk_get_radiation_data(cities, start, end, latitude, longitude, altitude)
 
     # merging data from different cities by taking average
-    average_windspeed = merge_datasets_by_taking_average(windspeed_data, ["windspeed"])
+    average_windspeed = merge_datasets_by_taking_average(windspeed_data, ["wspd"])
     average_ghi = merge_datasets_by_taking_average(ghi_data, ["GHI"])
     # upsampling windspeed data (since it is hourly)
     upsampled_data = average_windspeed.resample('15min').mean()
@@ -57,10 +57,12 @@ def get_and_clean_historical_data(start, end, timezone):
         filledData_spline = filledData_spline.append(last_datapoint, ignore_index=False)
 
     # for missing ghi (normally 1 day)
-    # By uncommenting the following rows, we use last datapoint for the missing day
-    last_dp = average_ghi.loc[[average_ghi.index[-1]]]
-    for i in range(len(filledData_spline) - len(average_ghi)):
-       average_ghi = average_ghi.append(last_dp, ignore_index=False)
+    # By uncommenting the following rows, we use last data (from yesterday)
+    #last_dp = average_ghi.loc[[average_ghi.index[-1]]]
+    average_ghi_fixed = average_ghi.copy()
+    for i in range(len(filledData_spline) - len(average_ghi_fixed)):
+       #print(average_ghi.index[len(average_ghi) - len(filledData_spline) + i])
+       average_ghi = average_ghi.append(average_ghi_fixed.loc[[average_ghi_fixed.index[len(average_ghi_fixed) - len(filledData_spline) + i]]], ignore_index=False)
 
     assert_on_number_of_rows([average_ghi, filledData_spline])
     filledData_spline.index = average_ghi.index
