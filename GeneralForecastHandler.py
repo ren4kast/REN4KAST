@@ -82,8 +82,6 @@ def get_forecasts_for_today():
                                            config)
 
 
-
-
 # Auto selecting the best model for current month, gathering data and returning the model forecasts.
 def get_monthly_approach_forecasts_for_today():
     data_frequency_per_day = 96
