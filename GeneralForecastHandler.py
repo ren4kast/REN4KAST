@@ -4,23 +4,6 @@ import pandas as pd
 from GenerationDataController import calculate_renewables_percentage
 from GeneralDataHandler import get_and_clean_historical_data
 
-# Defining the selected model params and method for each month.
-monthly_config = [
-    [[(2, 0, 2), (2, 1, 1, 4), 'n'], "SARIMA", []],  # January
-    [[(2, 0, 4), (0, 0, 0, 0), 'n'], "ARIMAX", ['windspeed', 'GHI']],  # February
-    [[(4, 0, 3), (0, 0, 0, 0), 'n'], "ARIMAX", ['windspeed', 'GHI']],  # March
-    [[(4, 1, 3), (2, 0, 2, 4), 'n'], "SARIMAX", ['windspeed', 'GHI']],  # April
-    [[(4, 1, 4), (0, 0, 0, 0), 'n'], "ARIMAX", ['windspeed', 'GHI']],  # May
-    [[(4, 1, 3), (2, 0, 2, 4), 'n'], "SARIMA", []],  # June
-    [[(4, 1, 4), (1, 0, 1, 4), 'n'], "SARIMAX", ['windspeed', 'GHI']],  # July
-    [[(3, 1, 3), (2, 0, 2, 4), 'n'], "SARIMA", []],  # August
-    [[(3, 1, 1), (2, 0, 2, 4), 'n'], "SARIMAX", ['windspeed', 'GHI']],  # September
-    [[(4, 1, 3), (2, 0, 2, 4), 'n'], "SARIMA", []],  # October
-    [[(3, 1, 3), (2, 0, 2, 4), 'n'], "SARIMA", []],  # November
-    [[(3, 1, 4), (2, 0, 2, 4), 'n'], "SARIMA", []]  # December
-]
-
-
 # training and getting the forecasts for SARIMAX and ARIMAX models
 def run_and_save_S_ARIMAX_model(train, test_length, exog_train, exog_test, config):
     order, sorder, trend = config
@@ -44,7 +27,7 @@ def run_and_save_SARIMA_model(train, test_length, config):
 
 
 # Auto selecting the best model for current month, gathering data and returning the model forecasts.
-def get_forecasts_for_today():
+def get_forecasts_for_today(monthly_config):
     data_frequency_per_day = 96
     start = (datetime.today() - timedelta(days=35)).strftime('%Y-%m-%d')
     end = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')

@@ -53,6 +53,7 @@ def calculate_renewables_percentage(start, end, expected_length):
                         ('Solar', 'Actual Aggregated'),
                         ('Wind Offshore', 'Actual Aggregated'),
                         ('Wind Onshore', 'Actual Aggregated')]
+    # Dropping the other columns
     RenForecast = generation_data.drop(columns=list(set(generation_data.columns) - set(renewableColumns)))
     #RenForecast = generation_data.drop(columns=['Biomass', 'Fossil Brown coal/Lignite', 'Fossil Gas',
     #                                            'Fossil Hard coal', 'Fossil Oil', 'Geothermal', 'Hydro Pumped Storage',
