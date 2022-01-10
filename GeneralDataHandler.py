@@ -44,10 +44,10 @@ def get_and_clean_historical_data(start, end, timezone):
     ghi_data = bulk_get_radiation_data(cities, start, end, latitude, longitude, altitude)
 
     # merging data from different cities by taking average
-    average_windspeed = merge_datasets_by_taking_average(windspeed_data, ["wspd"])
+    average_meteoParams = merge_datasets_by_taking_average(windspeed_data, ["wspd", "temp"])
     average_ghi = merge_datasets_by_taking_average(ghi_data, ["GHI"])
     # upsampling windspeed data (since it is hourly)
-    upsampled_data = average_windspeed.resample('15min').mean()
+    upsampled_data = average_meteoParams.resample('15min').mean()
     # filling the upsampled datapoints using interpolation
     filledData_spline = upsampled_data.interpolate(method='spline', order=2).round(3)
 
@@ -68,21 +68,17 @@ def get_and_clean_historical_data(start, end, timezone):
     filledData_spline.index = average_ghi.index
 
     result = pd.concat([filledData_spline, average_ghi], axis=1, sort=False)
-    result.columns = ["windspeed", "GHI"]
+    result.columns = ["windspeed", "temperature", "GHI"]
     # appending the windspeed and GHI data (exogenous params) for today and tomorrow
     return result.append(get_and_clean_real_time_data(cities, longitude, latitude))
 
 
 # Getting exogenous params for today and tomorrow
 def get_today_and_tomorrow_exog_data_request(latitude, longitude, start, end, columns):
-    #url = 'http://www.soda-pro.com/api/jsonws/helioclim3-forecast-portlet.hc3request/proxy?url=http%253A%252F%252Fwww.soda-is.com%252Fcom%252Fhc3v5_meteo_soda_get.php%253Flatlon%253D{}%252C{}%2526alt%253D-999%2526date1%253D{}%2526date2%253D{}%2526summar%253D15%2526refTime%253DUT%2526tilt%253D0%2526azim%253D180%2526al%253D0.2%2526horizon%253D1%2526outcsv%253D1%2526forecast%253D2%2526gamma-sun-min%253D12%2526header%253D1%2526code%253D1%2526format%253Dunified'.format(
-    #url = 'http://www.soda-is.com/pub/hc3v5_meteo_persistence_forecast.php?geopoint={},{}&firstday=d&duration=15&time=UT&elevation=-999&format=json'.format(
-    #url = 'http://www.soda-pro.com/api/jsonws/hcforecast.hc3request/proxy?url=http%253A%252F%252Fwww.soda-is.com%252Fcom%252Fhc3v5_meteo_soda_get.php%253Flatlon%253D{}%252C{}%2526alt%253D-999%2526date1%253D{}%2526date2%253D{}%2526summar%253D15%2526refTime%253DUT%2526tilt%253D0%2526azim%253D180%2526al%253D0.2%2526horizon%253D1%2526format%253Dunified%2526outcsv%253D1%2526forecast%253D1%2526gamma-sun-min%253D2%2526header%253D1%2526code%253D1'.format(
     url = 'http://www.soda-pro.com/api/jsonws/hcforecast.hc3request/proxy?url=http%253A%252F%252Fwww.soda-is.com%252Fcom%252Fhc3v5_meteo_soda_get.php%253Flatlon%253D{}%252C{}%2526alt%253D-999%2526date1%253D{}%2526date2%253D{}%2526summar%253D15%2526refTime%253DUT%2526tilt%253D0%2526azim%253D180%2526al%253D0.2%2526horizon%253D1%2526format%253Dunified%2526outcsv%253D1%2526forecast%253D2%2526gamma-sun-min%253D12%2526header%253D1%2526code%253D1'.format(
         latitude, longitude, start, end)
-    #url = 'https://pro.openweathermap.org/data/2.5/forecast/hourly?lat={}&lon={}&appid=b1b15e88fa797225412429c1c50c122a1'.format(
-    #    latitude, longitude)
-    header = {"Cookie": "COOKIE_SUPPORT=true; CookieConsent={stamp:%27mrOCDN4jIytM9HVJk5rc5WJRP8mw1Uk3VWK/ajeLpMrXiwfrUcgFOA==%27%2Cnecessary:true%2Cpreferences:true%2Cstatistics:true%2Cmarketing:true%2Cver:1%2Cutc:1639334543485%2Cregion:%27de%27}; _gid=GA1.2.216345233.1641737626; GUEST_LANGUAGE_ID=en_US; LFR_SESSION_STATE_10135=1641738073451; JSESSIONID=73D1F7588C19E6B95C5B0D73388C0A21; COMPANY_ID=10132; ID=36775a62516234756f59716d45666343397a774c32673d3d; _gat=1; _ga=GA1.1.1373754213.1640870644; LFR_SESSION_STATE_3824933=1641738211546; _ga_DFZK42Q4WY=GS1.1.1641737626.6.1.1641738213.0"}
+    # http://www.soda-pro.com/web-services/radiation/helioclim-3-real-time-and-forecast
+    header = {"Cookie": "JSESSIONID=62DAF76532B9C04E9238C016E7107229"}
     resp = requests.get(url, headers=header).content
 
     link = str(resp).split("value>")
@@ -108,8 +104,8 @@ def get_today_and_tomorrow_exog_data_request(latitude, longitude, start, end, co
     # metric conversion: m/s to km/h ~ 3.6
     df['Wind speed'] = [element * 3.6 for element in df['Wind speed']]
 
-    # TODO: convert temperature to centigrade degrees
-    # check list of exog. params that we need.
+    # convert temperature - kelvin to centigrade
+    df['Temperature'] = [element - 273.15 for element in df['Temperature']]
     return df
 
 
@@ -123,8 +119,8 @@ def get_and_clean_real_time_data(cities, longitude, latitude):
             get_today_and_tomorrow_exog_data_request(
                 latitude=latitude[i],
                 longitude=longitude[i], start=start, end=end,
-                columns=['Global Horiz', 'Wind speed']))
+                columns=['Global Horiz', 'Wind speed', 'Temperature']))
 
-    average_today = merge_datasets_by_taking_average(today_data, ['Wind speed', 'Global Horiz'])
-    average_today.columns = ["windspeed", "GHI"]
+    average_today = merge_datasets_by_taking_average(today_data, ['Wind speed', 'Temperature', 'Global Horiz'])
+    average_today.columns = ["windspeed", "temperature", "GHI"]
     return average_today

@@ -6,18 +6,18 @@ from GeneralDataHandler import get_and_clean_historical_data
 
 # Defining the selected model params and method for each month.
 monthly_config = [
-    [[(2, 0, 2), (2, 1, 1, 4), 'n'], "SARIMA"],  # January
-    [[(2, 0, 4), (0, 0, 0, 0), 'n'], "ARIMAX"],  # February
-    [[(4, 0, 3), (0, 0, 0, 0), 'n'], "ARIMAX"],  # March
-    [[(4, 1, 3), (2, 0, 2, 4), 'n'], "SARIMAX"],  # April
-    [[(4, 1, 4), (0, 0, 0, 0), 'n'], "ARIMAX"],  # May
-    [[(4, 1, 3), (2, 0, 2, 4), 'n'], "SARIMA"],  # June
-    [[(4, 1, 4), (1, 0, 1, 4), 'n'], "SARIMAX"],  # July
-    [[(3, 1, 3), (2, 0, 2, 4), 'n'], "SARIMA"],  # August
-    [[(3, 1, 1), (2, 0, 2, 4), 'n'], "SARIMAX"],  # September
-    [[(4, 1, 3), (2, 0, 2, 4), 'n'], "SARIMA"],  # October
-    [[(3, 1, 3), (2, 0, 2, 4), 'n'], "SARIMA"],  # November
-    [[(3, 1, 4), (2, 0, 2, 4), 'n'], "SARIMA"]  # December
+    [[(2, 0, 2), (2, 1, 1, 4), 'n'], "SARIMA", []],  # January
+    [[(2, 0, 4), (0, 0, 0, 0), 'n'], "ARIMAX", ['windspeed', 'GHI']],  # February
+    [[(4, 0, 3), (0, 0, 0, 0), 'n'], "ARIMAX", ['windspeed', 'GHI']],  # March
+    [[(4, 1, 3), (2, 0, 2, 4), 'n'], "SARIMAX", ['windspeed', 'GHI']],  # April
+    [[(4, 1, 4), (0, 0, 0, 0), 'n'], "ARIMAX", ['windspeed', 'GHI']],  # May
+    [[(4, 1, 3), (2, 0, 2, 4), 'n'], "SARIMA", []],  # June
+    [[(4, 1, 4), (1, 0, 1, 4), 'n'], "SARIMAX", ['windspeed', 'GHI']],  # July
+    [[(3, 1, 3), (2, 0, 2, 4), 'n'], "SARIMA", []],  # August
+    [[(3, 1, 1), (2, 0, 2, 4), 'n'], "SARIMAX", ['windspeed', 'GHI']],  # September
+    [[(4, 1, 3), (2, 0, 2, 4), 'n'], "SARIMA", []],  # October
+    [[(3, 1, 3), (2, 0, 2, 4), 'n'], "SARIMA", []],  # November
+    [[(3, 1, 4), (2, 0, 2, 4), 'n'], "SARIMA", []]  # December
 ]
 
 
@@ -67,12 +67,12 @@ def get_forecasts_for_today():
     renewables_percentage.index = pd.date_range(start="{} 00:00:00".format(start), periods=len(renewables_percentage),
                                                 freq='15Min')
 
-    config, model = monthly_config[renewables_percentage.index[-1].month - 1]
+    config, model, exog_column_names = monthly_config[renewables_percentage.index[-1].month - 1]
     if model == "SARIMA":
         return run_and_save_SARIMA_model(renewables_percentage, data_frequency_per_day, config)
     else:  # SARIMAX or ARIMAX
         # Getting exogenous params (GHI, Wind speed) for ARIMAX and SARIMAX
-        exog_params = get_and_clean_historical_data(start, end, timezone)
+        exog_params = get_and_clean_historical_data(start, end, timezone)[exog_column_names]
         # Updating the index and chaging type to float64
         exog_params.index = pd.date_range(start="{} 00:00:00".format(start), periods=len(exog_params), freq='15Min')
         exog_params = exog_params.apply(pd.to_numeric)

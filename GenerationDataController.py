@@ -49,19 +49,22 @@ def calculate_renewables_percentage(start, end, expected_length):
 
     calcTotal = sumBioMassAndHydro + sumOthers
 
-    RenForecast = generation_data.drop(columns=['Biomass', 'Fossil Brown coal/Lignite', 'Fossil Gas',
-                                                'Fossil Hard coal', 'Fossil Oil', 'Geothermal', 'Hydro Pumped Storage',
-                                                'Hydro Run-of-river and poundage', 'Hydro Water Reservoir', 'Nuclear',
-                                                'Other', 'Waste', #('Other renewable', 'Actual Consumption'),
-                                                ('Solar', 'Actual Consumption'),
-                                                ('Wind Onshore', 'Actual Consumption'), ('Other renewable', 'Actual Consumption')])
+    renewableColumns = [('Other renewable',  'Actual Aggregated'),
+                        ('Solar', 'Actual Aggregated'),
+                        ('Wind Offshore', 'Actual Aggregated'),
+                        ('Wind Onshore', 'Actual Aggregated')]
+    RenForecast = generation_data.drop(columns=list(set(generation_data.columns) - set(renewableColumns)))
+    #RenForecast = generation_data.drop(columns=['Biomass', 'Fossil Brown coal/Lignite', 'Fossil Gas',
+    #                                            'Fossil Hard coal', 'Fossil Oil', 'Geothermal', 'Hydro Pumped Storage',
+    #                                            'Hydro Run-of-river and poundage', 'Hydro Water Reservoir', 'Nuclear',
+    #                                            'Other', 'Waste', ('Solar', 'Actual Consumption'),
+    #                                            ('Wind Onshore', 'Actual Consumption'), ('Other renewable', 'Actual Consumption')])
 
     RenForecast.insert(0, "calcTotal", calcTotal["Actual Aggregated"], True)
     RenForecast.insert(1, "sumBioMassAndHydro", sumBioMassAndHydro["Actual Aggregated"], True)
     RenForecast.columns = ["calcTotal", "sumBioMassAndHydro", "Other renewable", "Solar", "Wind Offshore",
                            "Wind Onshore"]
 
-    renewablesPercentage = pd.DataFrame(columns=['percentage'], index=[RenForecast.index])
     forecast = RenForecast.copy()
     for index, row in forecast.iterrows():
         if (row["sumBioMassAndHydro"].all == 0.0):
