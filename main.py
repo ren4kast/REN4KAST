@@ -37,7 +37,7 @@ run_with_ngrok(app)  # starts ngrok when the app is run
 
 @app.route("/")
 def home():
-    return "<h1>Renewable Energy Generation Forecasting Service</h1><p>Please use api/v1/getForecasts endpoint to get the forecasts.</p>"
+    return "<h1>Renewable Energy Generation Forecasting Service</h1><p>Please use api/v1/getForecasts or api/v2/getForecasts endpoints to get the forecasts.</p>"
 
 @app.route("api/v1/getForecasts", methods=["GET"])
 def forecast():

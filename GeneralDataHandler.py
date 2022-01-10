@@ -58,10 +58,8 @@ def get_and_clean_historical_data(start, end, timezone):
 
     # for missing ghi (normally 1 day)
     # By uncommenting the following rows, we use last data (from yesterday)
-    #last_dp = average_ghi.loc[[average_ghi.index[-1]]]
     average_ghi_fixed = average_ghi.copy()
     for i in range(len(filledData_spline) - len(average_ghi_fixed)):
-       #print(average_ghi.index[len(average_ghi) - len(filledData_spline) + i])
        average_ghi = average_ghi.append(average_ghi_fixed.loc[[average_ghi_fixed.index[len(average_ghi_fixed) - len(filledData_spline) + i]]], ignore_index=False)
 
     assert_on_number_of_rows([average_ghi, filledData_spline])
