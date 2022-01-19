@@ -26,9 +26,7 @@ def assert_on_number_of_rows(df):
     for i in df:
         assert len(i) == len(df[0]), "Number of rows did NOT match! {} vs. {}".format(len(df[0]), len(i))
 
-
-# Get weather data from meteostat for defined cities
-def get_and_clean_historical_data(start, end, timezone):
+def get_weather_stations():
     cities = ["memmingen", "Rostock Warnem-u00fcnde", "Osnabrueck", "Braunschweig", "Cuxhaven", "Luebeck", "Berlin",
               "Bonn", "Hof", "Freudenstadt", "München", "Meiningen"]
     station_ids = ["10947", "10170", "10315", "10348", "10131", "10156", "10382", "10513", "10685", "10815", "10865",
@@ -38,6 +36,11 @@ def get_and_clean_historical_data(start, end, timezone):
     longitude = ["10.2333", "12.0833", "7.7", "10.45", "8.7", "10.7", "13.3167", "7.1667", "11.8833", "8.4167", "11.55",
                  "10.3833"]
     altitude = ["634", "4", "48", "81", "5", "14", "37", "91", "565", "797", "520", "450"]
+    return cities, station_ids, latitude, longitude, altitude
+
+# Get weather data from meteostat for defined cities
+def get_and_clean_historical_data(start, end, timezone):
+    cities, station_ids, latitude, longitude, altitude = get_weather_stations()
 
     # Getting data for cities
     windspeed_data = bulk_get_weather_data(cities, station_ids, start, end, timezone)
@@ -68,15 +71,16 @@ def get_and_clean_historical_data(start, end, timezone):
     result = pd.concat([filledData_spline, average_ghi], axis=1, sort=False)
     result.columns = ["windspeed", "temperature", "GHI"]
     # appending the windspeed and GHI data (exogenous params) for today and tomorrow
-    return result.append(get_and_clean_real_time_data(cities, longitude, latitude))
+    return result
 
 
 # Getting exogenous params for today and tomorrow
 def get_today_and_tomorrow_exog_data_request(latitude, longitude, start, end, columns):
+
     url = 'http://www.soda-pro.com/api/jsonws/hcforecast.hc3request/proxy?url=http%253A%252F%252Fwww.soda-is.com%252Fcom%252Fhc3v5_meteo_soda_get.php%253Flatlon%253D{}%252C{}%2526alt%253D-999%2526date1%253D{}%2526date2%253D{}%2526summar%253D15%2526refTime%253DUT%2526tilt%253D0%2526azim%253D180%2526al%253D0.2%2526horizon%253D1%2526format%253Dunified%2526outcsv%253D1%2526forecast%253D2%2526gamma-sun-min%253D12%2526header%253D1%2526code%253D1'.format(
         latitude, longitude, start, end)
     # http://www.soda-pro.com/web-services/radiation/helioclim-3-real-time-and-forecast
-    header = {"Cookie": "JSESSIONID=62DAF76532B9C04E9238C016E7107229"}
+    header = {"Cookie": "JSESSIONID=F0BDA8B882D0E592D95FA7AF61E28433"}
     resp = requests.get(url, headers=header).content
 
     link = str(resp).split("value>")
@@ -108,7 +112,9 @@ def get_today_and_tomorrow_exog_data_request(latitude, longitude, start, end, co
 
 
 # getting exogenous data from today and tomorrow for all cities and taking average
-def get_and_clean_real_time_data(cities, longitude, latitude):
+def get_and_clean_real_time_data():
+    cities, station_ids, latitude, longitude, altitude = get_weather_stations()
+
     start = (datetime.today()).strftime('%Y-%m-%d')	
     end = (datetime.today() + timedelta(days=1)).strftime('%Y-%m-%d')
     today_data = []

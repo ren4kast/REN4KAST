@@ -1,9 +1,13 @@
-from GeneralForecastHandler import get_forecasts_for_today
 from flask_ngrok import run_with_ngrok
-from flask import Flask, make_response
+from flask import Flask, make_response, request
+from GeneralForecastHandler import get_forecasts_for_today, get_data_by_date
+import pandas as pd
+import numpy as np
+from flask import jsonify
 
 app = Flask(__name__)
 # Defining the selected model params and method for each month.
+available_exog_params = ['windspeed', 'GHI', 'temperature', 'X4']
 monthly_config = [
     [[(2, 0, 2), (2, 1, 1, 4), 'n'], "SARIMA", []],  # January
     [[(2, 0, 4), (0, 0, 0, 0), 'n'], "ARIMAX", ['windspeed', 'GHI']],  # February
@@ -39,7 +43,7 @@ run_with_ngrok(app)  # starts ngrok when the app is run
 def home():
     return "<h1>Renewable Energy Generation Forecasting Service</h1><p>Please use api/v1/getForecasts or api/v2/getForecasts endpoints to get the forecasts.</p>"
 
-@app.route("api/v1/getForecasts", methods=["GET"])
+@app.route("/api/v1/getForecasts", methods=["GET"])
 def forecast():
     forecast = get_forecasts_for_today(monthly_config)
     resp = make_response(forecast.to_csv(columns=forecast.columns))
@@ -48,13 +52,23 @@ def forecast():
     return resp
     # return jsonify(forecast.values.tolist())
 
-@app.route("api/v2/getForecasts", methods=["GET"])
-def forecast():
-    forecast = get_forecasts_for_today(new_monthly_config)
-    resp = make_response(forecast.to_csv(columns=forecast.columns))
-    resp.headers["Content-Disposition"] = "attachment; filename=export.csv"
-    resp.headers["Content-Type"] = "text/csv"
-    return resp
+@app.route("/api/v2/getForecasts", methods=["GET"])
+def forecast_v2():
+    forecast, exog = get_forecasts_for_today(new_monthly_config)
+    missing_columns = np.setdiff1d(available_exog_params, exog.columns.values.tolist())
+    nan_df = pd.DataFrame(np.nan, index=forecast.index, columns=missing_columns.tolist())
+    combined = pd.concat([forecast, exog, nan_df], axis=1, sort=False)
+
+    #resp = make_response(forecast.to_csv(columns=forecast.columns))
+    #resp.headers["Content-Disposition"] = "attachment; filename=export.csv"
+    #resp.headers["Content-Type"] = "text/csv"
+    return combined.to_json(orient='records')
+
+@app.route("/api/v2/getData", methods=["GET"])
+def get_data_35days():
+    start = request.args.get('startDate')
+    result = get_data_by_date(start)
+    return result.to_json(orient='records')
 
 def run_server():
     app.run()

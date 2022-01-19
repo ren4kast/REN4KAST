@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 import pandas as pd
 from GenerationDataController import calculate_renewables_percentage
-from GeneralDataHandler import get_and_clean_historical_data
+from GeneralDataHandler import get_and_clean_historical_data, get_and_clean_real_time_data
 
 # training and getting the forecasts for SARIMAX and ARIMAX models
 def run_and_save_S_ARIMAX_model(train, test_length, exog_train, exog_test, config):
@@ -52,18 +52,50 @@ def get_forecasts_for_today(monthly_config):
 
     config, model, exog_column_names = monthly_config[renewables_percentage.index[-1].month - 1]
     if model == "SARIMA":
-        return run_and_save_SARIMA_model(renewables_percentage, data_frequency_per_day, config)
+        return run_and_save_SARIMA_model(renewables_percentage, data_frequency_per_day, config), None
     else:  # SARIMAX or ARIMAX
         # Getting exogenous params (GHI, Wind speed) for ARIMAX and SARIMAX
-        exog_params = get_and_clean_historical_data(start, end, timezone)[exog_column_names]
+        exog_params = get_and_clean_historical_data(start, end, timezone).append(get_and_clean_real_time_data())[exog_column_names]
         # Updating the index and chaging type to float64
         exog_params.index = pd.date_range(start="{} 00:00:00".format(start), periods=len(exog_params), freq='15Min')
         exog_params = exog_params.apply(pd.to_numeric)
         # training the model and returning the forecasts
         return run_and_save_S_ARIMAX_model(renewables_percentage, data_frequency_per_day,
                                            exog_params[:-data_frequency_per_day], exog_params[-data_frequency_per_day:],
-                                           config)
+                                           config), exog_params[-data_frequency_per_day:]
 
+
+def get_data_by_date(start):
+    data_frequency_per_day = 96
+    #start = '2021-12-10'
+    end = (pd.Timestamp(start, tz='Etc/GMT')+ timedelta(days=35)).strftime('%Y-%m-%d')
+    end_entsoe = (pd.Timestamp(end, tz='Etc/GMT')+ timedelta(days=1)).strftime('%Y-%m-%d')
+    current_time = (datetime.today()).strftime('%Y-%m-%d')
+    start_tresh = (pd.Timestamp(current_time, tz='Etc/GMT') - timedelta(days=37)).strftime('%Y-%m-%d')
+    if start >= start_tresh:
+        return "start time cannot be later that {}, please choose a date before that. Currently, it will return 35 days of data since the start date.".format(start_tresh)
+
+    timezone = "Etc/GMT"  # Europe/Berlin OR Etc/GMT
+    # Getting renewables generation
+    renewables_percentage = calculate_renewables_percentage(
+        pd.Timestamp(start, tz='Etc/GMT'), pd.Timestamp(end_entsoe, tz='Etc/GMT'),
+        ((datetime.strptime(end_entsoe,
+                 '%Y-%m-%d') - datetime.strptime(start,
+                 '%Y-%m-%d')).days) * 96)
+
+    # updating the type to float64
+    renewables_percentage = renewables_percentage.apply(pd.to_numeric)
+
+    # updating the index
+    renewables_percentage.index = pd.date_range(start="{} 00:00:00".format(start), periods=len(renewables_percentage),
+                                                freq='15Min')
+
+    exog_params = get_and_clean_historical_data(start, end, timezone)
+    # Updating the index and chaging type to float64
+    exog_params.index = pd.date_range(start="{} 00:00:00".format(start), periods=len(exog_params), freq='15Min')
+    exog_params = exog_params.apply(pd.to_numeric)
+    # training the model and returning the forecasts
+    return pd.concat([exog_params, renewables_percentage], axis=1, sort=False)
 
 # Auto selecting the best model for current month, gathering data and returning the model forecasts.
 def get_monthly_approach_forecasts_for_today():
