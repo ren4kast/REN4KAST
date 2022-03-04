@@ -31,4 +31,4 @@ It returns a pandas Dataframe containing day-ahead forecasts.
 
 # Related Articles
 * [Day-Ahead Forecasting of the Percentage of Renewables Based on Time-Series Statistical Methods](https://www.mdpi.com/1996-1073/14/21/7443)
-* [ARIMA-based Forecasts for the Share of Renewable Energy Sources: The Case Study of Germany](TBD)
+* ARIMA-based Forecasts for the Share of Renewable Energy Sources: The Case Study of Germany
