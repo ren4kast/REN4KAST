@@ -3,7 +3,7 @@ from RadiationDataController import bulk_get_radiation_data
 from WeatherDataController import bulk_get_weather_data
 import requests
 from datetime import datetime, timedelta
-
+import json
 
 # Merging gathered data from different cities by taking average
 def merge_datasets_by_taking_average(df, target_columns):
@@ -26,9 +26,7 @@ def assert_on_number_of_rows(df):
     for i in df:
         assert len(i) == len(df[0]), "Number of rows did NOT match! {} vs. {}".format(len(df[0]), len(i))
 
-
-# Get weather data from meteostat for defined cities
-def get_and_clean_historical_data(start, end, timezone):
+def get_weather_stations():
     cities = ["memmingen", "Rostock Warnem-u00fcnde", "Osnabrueck", "Braunschweig", "Cuxhaven", "Luebeck", "Berlin",
               "Bonn", "Hof", "Freudenstadt", "München", "Meiningen"]
     station_ids = ["10947", "10170", "10315", "10348", "10131", "10156", "10382", "10513", "10685", "10815", "10865",
@@ -38,16 +36,21 @@ def get_and_clean_historical_data(start, end, timezone):
     longitude = ["10.2333", "12.0833", "7.7", "10.45", "8.7", "10.7", "13.3167", "7.1667", "11.8833", "8.4167", "11.55",
                  "10.3833"]
     altitude = ["634", "4", "48", "81", "5", "14", "37", "91", "565", "797", "520", "450"]
+    return cities, station_ids, latitude, longitude, altitude
+
+# Get weather data from meteostat for defined cities
+def get_and_clean_historical_data(start, end, timezone):
+    cities, station_ids, latitude, longitude, altitude = get_weather_stations()
 
     # Getting data for cities
     windspeed_data = bulk_get_weather_data(cities, station_ids, start, end, timezone)
     ghi_data = bulk_get_radiation_data(cities, start, end, latitude, longitude, altitude)
 
     # merging data from different cities by taking average
-    average_windspeed = merge_datasets_by_taking_average(windspeed_data, ["windspeed"])
+    average_meteoParams = merge_datasets_by_taking_average(windspeed_data, ["wspd", "temp"])
     average_ghi = merge_datasets_by_taking_average(ghi_data, ["GHI"])
     # upsampling windspeed data (since it is hourly)
-    upsampled_data = average_windspeed.resample('15min').mean()
+    upsampled_data = average_meteoParams.resample('15min').mean()
     # filling the upsampled datapoints using interpolation
     filledData_spline = upsampled_data.interpolate(method='spline', order=2).round(3)
 
@@ -57,37 +60,39 @@ def get_and_clean_historical_data(start, end, timezone):
         filledData_spline = filledData_spline.append(last_datapoint, ignore_index=False)
 
     # for missing ghi (normally 1 day)
-    # By uncommenting the following rows, we use last datapoint for the missing day
-    last_dp = average_ghi.loc[[average_ghi.index[-1]]]
-    for i in range(len(filledData_spline) - len(average_ghi)):
-       average_ghi = average_ghi.append(last_dp, ignore_index=False)
+    # Use last data (from yesterday)
+    average_ghi_fixed = average_ghi.copy()
+    for i in range(len(filledData_spline) - len(average_ghi_fixed)):
+       average_ghi = average_ghi.append(average_ghi_fixed.loc[[average_ghi_fixed.index[len(average_ghi_fixed) - len(filledData_spline) + i]]], ignore_index=False)
 
     assert_on_number_of_rows([average_ghi, filledData_spline])
     filledData_spline.index = average_ghi.index
 
     result = pd.concat([filledData_spline, average_ghi], axis=1, sort=False)
+    result.columns = ["windspeed", "temperature", "GHI"]
     # appending the windspeed and GHI data (exogenous params) for today and tomorrow
-    return result.append(get_and_clean_real_time_data(cities, longitude, latitude))
+    return result
 
 
 # Getting exogenous params for today and tomorrow
 def get_today_and_tomorrow_exog_data_request(latitude, longitude, start, end, columns):
-    url = 'http://www.soda-pro.com/api/jsonws/helioclim3-forecast-portlet.hc3request/proxy?url=http%253A%252F%252Fwww.soda-is.com%252Fcom%252Fhc3v5_meteo_soda_get.php%253Flatlon%253D{}%252C{}%2526alt%253D-999%2526date1%253D{}%2526date2%253D{}%2526summar%253D15%2526refTime%253DUT%2526tilt%253D0%2526azim%253D180%2526al%253D0.2%2526horizon%253D1%2526outcsv%253D1%2526forecast%253D2%2526gamma-sun-min%253D12%2526header%253D1%2526code%253D1%2526format%253Dunified'.format(
-        latitude, longitude, start, end)
-    resp = requests.get(url).content
-    link = str(resp).split("value>")
+    url = "https://weatherbit-v1-mashape.p.rapidapi.com/forecast/hourly"
+    querystring = {"lat": latitude, "lon": longitude, "hours": "48"}
 
-    csvfile = requests.get(link[1][:len(link[1]) - 2]).content
+    headers = {
+        'x-rapidapi-host': "weatherbit-v1-mashape.p.rapidapi.com",
+        'x-rapidapi-key': "f00df48a34msha857b3f5bd76f9fp10a955jsn7455a5604803"
+    }
 
-    # removing headers
-    content = csvfile[csvfile.decode("utf-8").find("Date;Time;Global Horiz;Clear-Sky;"):]
+    response = requests.request("GET", url, headers=headers, params=querystring)
+    jsondata = json.loads(response.text)
+    df = pd.json_normalize(jsondata['data'])
 
-    df = pd.DataFrame([x.split(';') for x in content.decode("utf-8").split('\n')[1:]],
-                      columns=[x for x in content.decode("utf-8").split('\n')[0].split(';')])
-    df.index = pd.date_range(start="{} 00:00:00".format(start), periods=len(df), freq='15Min')
+    #TODO: data starts from now, should be called a few minutes before the day before the forecast (at around 23:58 for forcasting the day after tomorrow)
+    # assert datetime.now().hour == 23, "The service is supposed to call after 23:00 to retrieve data for the day before forecast."
+    df.index = pd.date_range(start="{} 00:00:00".format(start), periods=len(df), freq='H')
     df.index.name = 'time'
-    # removing the last empty line
-    df = df.drop(df.index[-1])
+
     # replacing missing values with the previous non-missing value
     df[columns] = df[columns].ffill()
 
@@ -95,13 +100,15 @@ def get_today_and_tomorrow_exog_data_request(latitude, longitude, start, end, co
     df[columns] = df[columns].apply(pd.to_numeric)
 
     # metric conversion: m/s to km/h ~ 3.6
-    df['Wind speed'] = [element * 3.6 for element in df['Wind speed']]
+    df['wind_spd'] = [element * 3.6 for element in df['wind_spd']]
     return df
 
 
 # getting exogenous data from today and tomorrow for all cities and taking average
-def get_and_clean_real_time_data(cities, longitude, latitude):
-    start = (datetime.today()).strftime('%Y-%m-%d')	
+def get_and_clean_real_time_data():
+    cities, station_ids, latitude, longitude, altitude = get_weather_stations()
+
+    start = (datetime.today()).strftime('%Y-%m-%d')
     end = (datetime.today() + timedelta(days=1)).strftime('%Y-%m-%d')
     today_data = []
     for i in range(len(cities)):
@@ -109,8 +116,21 @@ def get_and_clean_real_time_data(cities, longitude, latitude):
             get_today_and_tomorrow_exog_data_request(
                 latitude=latitude[i],
                 longitude=longitude[i], start=start, end=end,
-                columns=['Global Horiz', 'Wind speed']))
+                columns=['ghi', 'wind_spd', 'temp']))
 
-    average_today = merge_datasets_by_taking_average(today_data, ['Wind speed', 'Global Horiz'])
-    average_today.columns = ["windspeed", "GHI"]
-    return average_today
+    average_today = merge_datasets_by_taking_average(today_data, ['ghi', 'wind_spd', 'temp'])
+
+    upsampled_data = average_today.resample('15Min').mean()
+
+    # filling the upsampled datapoints using interpolation
+    filledData_spline = upsampled_data.interpolate(method='linear', order=1).round(3)
+
+    # data is available until  23:00, so using last data point to make data until 23:45
+    last_datapoint = filledData_spline.loc[[filledData_spline.index[-1]]]
+    for i in range(3):
+        filledData_spline = filledData_spline.append(last_datapoint, ignore_index=False)
+    filledData_spline.index = pd.date_range(start="{} 00:00:00".format(start), periods=len(filledData_spline),
+                                            freq='15Min')
+
+    filledData_spline.columns = ["GHI", "windspeed", "temperature"]
+    return filledData_spline
